@@ -3,8 +3,6 @@ from settings import *
 
 
 class Bullet(pygame.sprite.Sprite):
-    """Pocisk lecący prosto. Używany przez gracza (domyślne wartości) i przez bossa."""
-
     def __init__(self, start_pos, target_pos, damage,
                  color=BULLET_COLOR, speed=BULLET_SPEED, radius=BULLET_RADIUS):
         super().__init__()
@@ -16,7 +14,7 @@ class Bullet(pygame.sprite.Sprite):
         self.pos = pygame.math.Vector2(start_pos)
         self.rect.center = self.pos
 
-        # Kierunek lotu ustalany raz - pocisk leci prosto w stronę celu
+        # Kierunek lotu ustalany raz pocisk leci prosto w stronę celu
         direction = pygame.math.Vector2(target_pos) - self.pos
         if direction.length() == 0:
             direction = pygame.math.Vector2(1, 0)

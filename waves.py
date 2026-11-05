@@ -1,32 +1,22 @@
 import random
 from settings import *
 
-# Skład fal: {typ wroga: ilość}. Typy są zdefiniowane w settings.py (ENEMY_TYPES).
-# Ostatnia fala to boss - po jego pokonaniu wygrywasz.
 WAVES = [
-    {"basic": 10},                              # fala 1
-    {"basic": 12, "fast": 6},                   # fala 2 - nowy wróg: szybki
-    {"basic": 12, "fast": 8, "tank": 4},        # fala 3 - nowy wróg: tank
-    {"boss": 1},                                # boss
+    {"basic": 10},
+    {"basic": 12, "fast": 6},
+    {"basic": 12, "fast": 8, "tank": 4},
+    {"boss": 1},
 ]
 
-
 class WaveManager:
-    """
-    Stany:
-      "intermission" - odliczanie do kolejnej fali (czas na zebranie dropów)
-      "wave"         - wrogowie z fali się pojawiają, a fala kończy się,
-                       gdy wszyscy zostaną zabici
-      "done"         - ostatnia fala (boss) pokonana
-    """
 
     def __init__(self):
         self.index = 0
         self.state = "intermission"
         self.timer = FIRST_WAVE_DELAY
-        self.queue = []             # wrogowie, którzy jeszcze nie pojawili się w tej fali
+        self.queue = []
         self.spawn_timer = 0
-        self.total = len(WAVES) - 1  # liczba zwykłych fal (bez bossa)
+        self.total = len(WAVES) - 1
 
     @property
     def number(self):
@@ -39,11 +29,9 @@ class WaveManager:
         return "BOSS" if self.is_boss_wave() else f"Fala {self.number}"
 
     def remaining(self, alive):
-        """Ilu wrogów jeszcze zostało do pokonania w tej fali."""
         return len(self.queue) + alive
 
     def update(self, dt, alive):
-        """Zwraca listę typów wrogów, którzy mają się pojawić w tej klatce."""
         spawned = []
 
         if self.state == "intermission":
@@ -66,7 +54,7 @@ class WaveManager:
         self.queue = []
         for kind, count in WAVES[self.index].items():
             self.queue += [kind] * count
-        random.shuffle(self.queue)   # różne typy pojawiają się wymieszane
+        random.shuffle(self.queue)
         self.spawn_timer = 0
         self.state = "wave"
 

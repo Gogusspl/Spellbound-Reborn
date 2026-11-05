@@ -1,12 +1,10 @@
 import json
 import os
 
-# Plik zapisu leży obok kodu gry, niezależnie od tego, skąd uruchamiasz program
 SAVE_FILE = os.path.join(os.path.dirname(os.path.abspath(__file__)), "save.json")
 
-
 def load_game():
-    """Wczytuje zapis. Gdy pliku nie ma albo jest uszkodzony, zwraca czysty postęp."""
+    #Wczytuje zapis
     data = {"gold": 0, "levels": {}}
     try:
         with open(SAVE_FILE, "r", encoding="utf-8") as f:
@@ -26,7 +24,7 @@ def load_game():
 
 
 def save_game(data):
-    """Zapisuje postęp. Najpierw do pliku tymczasowego, żeby nie zepsuć zapisu przy awarii."""
+    #Zapisuje postęp i najpierw do pliku tymczasowego
     try:
         tmp_file = SAVE_FILE + ".tmp"
         with open(tmp_file, "w", encoding="utf-8") as f:

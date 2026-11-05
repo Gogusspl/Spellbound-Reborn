@@ -50,14 +50,21 @@ class Game:
         self.font_card_title = pygame.font.SysFont("arial", 30, bold=True)
         self.font_card_value = pygame.font.SysFont("arial", 40, bold=True)
 
-        # Stan gry: "menu", "game", "paused", "level_up", "game_over", "victory",
-        #           "settings", "upgrades"
+        tile_size = 64  # 16x16 powiększone 4x
+        floor_tiles = [load_sprite(f"floor{i}.png", (tile_size, tile_size)) for i in (1, 2, 3)]
+        rng = random.Random(7)
+        self.floor_surface = pygame.Surface((WIDTH, HEIGHT))
+        for x in range(0, WIDTH, tile_size):
+            for y in range(0, HEIGHT, tile_size):
+                tile = rng.choices(floor_tiles, weights=[45, 45, 10])[0]
+                self.floor_surface.blit(tile, (x, y))
+        self.coin_icon = load_sprite("coin.png", (24, 24))
+
         self.state = "menu"
         self.running = True
 
-        # Trwały postęp (złoto + poziomy stałych ulepszeń), wczytany z save.json
         self.save_data = save.load_game()
-        self.run_active = False   # czy trwa runda, której złoto nie zostało jeszcze zapisane
+        self.run_active = False
 
         self.buttons = [
             Button("Start", 300, self.font_button),
@@ -69,18 +76,18 @@ class Game:
             Button("Wróć do menu", 410, self.font_button),
         ]
 
-        # Dane rundy (ustawiane w start_run)
+        # Dane rundy
         self.player = None
         self.enemies = None
-        self.bullets = None         # pociski gracza
-        self.enemy_bullets = None   # pociski bossa
+        self.bullets = None
+        self.enemy_bullets = None
         self.pickups = None
         self.waves = None
         self.kills = 0
 
         # Wybór kart po awansie na wyższy poziom
         self.cards = []
-        self.pending_levelups = 0   # ile awansów czeka na wybór karty
+        self.pending_levelups = 0
         card_w, card_h, gap = 300, 420, 40
         total_w = 3 * card_w + 2 * gap
         start_x = (WIDTH - total_w) // 2
@@ -89,7 +96,7 @@ class Game:
             for i in range(3)
         ]
 
-        # Wiersze ekranu "Ulepszenia": (ulepszenie, prostokąt wiersza, prostokąt przycisku kupna)
+        # Ulepszenia
         self.meta_rows = []
         row_w, row_h, row_gap = 820, 70, 8
         row_x = (WIDTH - row_w) // 2
@@ -99,7 +106,7 @@ class Game:
             buy = pygame.Rect(row.right - 170, y + 10, 150, 50)
             self.meta_rows.append((upgrade, row, buy))
 
-    # ---------- Rozpoczęcie rundy ----------
+    # Rozpoczęcie rundy
     def start_run(self):
         self.player = Player()
         apply_meta_upgrades(self.player, self.save_data["levels"])   # stałe ulepszenia ze sklepu
@@ -115,7 +122,7 @@ class Game:
         self.state = "game"
 
     def bank_run_gold(self):
-        """Dolicza złoto zebrane w rundzie do zapisu (tylko raz na rundę)."""
+        # Zapis złota na koniec
         if self.run_active and self.player:
             self.save_data["gold"] += self.player.gold
             save.save_game(self.save_data)
@@ -125,7 +132,7 @@ class Game:
         self.bank_run_gold()
         self.state = new_state
 
-    # ---------- Pętla główna ----------
+    # Pętla główna
     def run(self):
         while self.running:
             dt = self.clock.tick(FPS) / 1000  # czas klatki w sekundach
@@ -135,7 +142,7 @@ class Game:
         pygame.quit()
         sys.exit()
 
-    # ---------- Zdarzenia ----------
+    # Zdarzenia
     def handle_events(self):
         for event in pygame.event.get():
             if event.type == pygame.QUIT:
@@ -165,7 +172,6 @@ class Game:
                 self.handle_upgrades_event(event)
 
             elif event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
-                # Ustawienia, ekran śmierci i zwycięstwa: ESC wraca do menu
                 self.state = "menu"
 
     def handle_pause_event(self, event):
@@ -174,7 +180,7 @@ class Game:
         elif self.pause_buttons[0].clicked(event):
             self.state = "game"
         elif self.pause_buttons[1].clicked(event):
-            self.end_run("menu")   # złoto zebrane do tej pory zostaje zapisane
+            self.end_run("menu")
 
     def handle_upgrades_event(self, event):
         if event.type == pygame.KEYDOWN and event.key == pygame.K_ESCAPE:
@@ -186,14 +192,14 @@ class Game:
                         save.save_game(self.save_data)
                     break
 
-    # ---------- Logika ----------
+    # Logika
     def update(self, dt):
         if self.state != "game":
             return
 
         self.player.update(dt)
 
-        # Fale: menedżer mówi, jakich wrogów wypuścić
+        # Fale
         for kind in self.waves.update(dt, len(self.enemies)):
             self.enemies.add(Enemy(kind))
         if self.waves.state == "done":
@@ -218,7 +224,7 @@ class Game:
             self.end_run("game_over")
 
     def win(self):
-        # Zbierz złoto, które zostało na ziemi (np. po bossie)
+        # Zbierz złoto, które zostało na ziemi
         for item in self.pickups:
             if item.kind == "gold":
                 self.player.add_gold(item.value)
@@ -226,7 +232,7 @@ class Game:
         self.end_run("victory")
 
     def handle_shooting(self):
-        """Auto-atak: gdy minie cooldown, strzelaj w najbliższego wroga."""
+        # automatyczne atakowanie
         if not self.player.can_attack():
             return
         target = self.player.find_target(self.enemies)
@@ -235,8 +241,9 @@ class Game:
             self.player.reset_attack_timer()
 
     def handle_bullet_hits(self):
-        """Pociski trafiają wrogów; martwy wróg zostawia XP i (czasem) złoto."""
-        hits = pygame.sprite.groupcollide(self.bullets, self.enemies, True, False)
+        # trafianie przeciwników
+        hits = pygame.sprite.groupcollide(self.bullets, self.enemies, True, False,
+                                          pygame.sprite.collide_rect_ratio(0.8))
         for bullet, enemies_hit in hits.items():
             enemy = enemies_hit[0]
             if not enemy.alive():
@@ -253,10 +260,9 @@ class Game:
             self.pickups.add(Pickup(enemy.pos + offset, "gold", enemy.gold_value))
 
     def handle_player_damage(self):
-        # Dotyk wroga
-        for enemy in pygame.sprite.spritecollide(self.player, self.enemies, False):
+        hitbox = pygame.sprite.collide_rect_ratio(0.7)
+        for enemy in pygame.sprite.spritecollide(self.player, self.enemies, False, hitbox):
             self.player.take_damage(enemy.damage)
-        # Pociski bossa (pocisk znika po trafieniu)
         for bullet in pygame.sprite.spritecollide(self.player, self.enemy_bullets, True):
             self.player.take_damage(bullet.damage)
 
@@ -273,9 +279,9 @@ class Game:
             else:
                 self.player.add_gold(item.value)
 
-    # ---------- Wybór karty ----------
+    # Wybór karty ulepszeń
     def handle_level_up_event(self, event):
-        # Kliknięcie myszą w kartę
+        # Kliknięcie myszką w kartę
         if event.type == pygame.MOUSEBUTTONDOWN and event.button == 1:
             for i, rect in enumerate(self.card_rects):
                 if rect.collidepoint(event.pos):
@@ -289,12 +295,12 @@ class Game:
         apply_upgrade(self.player, self.cards[index])
         self.pending_levelups -= 1
         if self.pending_levelups > 0:
-            # Zdobyłeś kilka poziomów naraz - losujemy kolejne karty
+            # kilka poziomów na raz
             self.cards = roll_cards(self.player)
         else:
             self.state = "game"
 
-    # ---------- Rysowanie ----------
+    # Rysowanie
     def draw(self):
         self.screen.fill(BG_COLOR)
 
@@ -322,11 +328,12 @@ class Game:
         pygame.display.flip()
 
     def draw_gold_counter(self, right, center_y, amount):
-        """Rysuje licznik złota (moneta + liczba) wyrównany do prawej krawędzi `right`."""
+        #Rysuje licznik złota
         text = self.font_button.render(str(amount), True, WHITE)
         text_rect = text.get_rect(midright=(right, center_y))
         self.screen.blit(text, text_rect)
-        pygame.draw.circle(self.screen, GOLD_COLOR, (text_rect.left - 18, center_y), 10)
+        coin_rect = self.coin_icon.get_rect(midright=(text_rect.left - 8, center_y))
+        self.screen.blit(self.coin_icon, coin_rect)
 
     def draw_menu(self):
         title = self.font_title.render("Spellbound Reborn", True, WHITE)
@@ -355,7 +362,7 @@ class Game:
             lvl = self.font_small.render(f"Poziom {level}/{upgrade['max_level']}", True, (150, 150, 170))
             self.screen.blit(lvl, (row.x + 20, row.y + 40))
 
-            # Wartość statystyki: teraz -> po zakupie
+            # Wartość statystyki: przed i po
             stat = upgrade["stat"]
             current = format_value(stat, meta_stat_value(upgrade, level))
             if maxed:
@@ -383,6 +390,7 @@ class Game:
         self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, 690)))
 
     def draw_game(self):
+        self.screen.blit(self.floor_surface, (0, 0))
         self.pickups.draw(self.screen)
         self.enemies.draw(self.screen)
         for enemy in self.enemies:
@@ -403,16 +411,16 @@ class Game:
         hp_text = self.font_small.render(f"{max(p.hp, 0)}/{p.max_hp}", True, WHITE)
         self.screen.blit(hp_text, (bar_w + 30, 17))
 
-        # Pasek XP + poziom
+        # Pasek XP i poziom
         pygame.draw.rect(self.screen, XP_BAR_BG, (20, 50, bar_w, 12))
         pygame.draw.rect(self.screen, XP_COLOR, (20, 50, bar_w * p.xp / p.xp_to_next, 12))
         lvl_text = self.font_small.render(f"Poziom {p.level}", True, WHITE)
         self.screen.blit(lvl_text, (bar_w + 30, 43))
 
         # Złoto
-        pygame.draw.circle(self.screen, GOLD_COLOR, (30, 85), 8)
+        self.screen.blit(self.coin_icon, (18, 72))
         gold_text = self.font_small.render(str(p.gold), True, WHITE)
-        self.screen.blit(gold_text, (46, 72))
+        self.screen.blit(gold_text, (50, 72))
 
     def draw_wave_info(self):
         w = self.waves
@@ -483,11 +491,11 @@ class Game:
             name = self.font_card_title.render(card["name"], True, WHITE)
             self.screen.blit(name, name.get_rect(center=(rect.centerx, rect.top + 120)))
 
-            # Bonus, np. +20%
+            # Bonusy ulepszeń
             bonus = self.font_card_title.render(card["bonus_text"], True, card["color"])
             self.screen.blit(bonus, bonus.get_rect(center=(rect.centerx, rect.top + 190)))
 
-            # Wartość przed -> po, np. 10 -> 12
+            # Wartość przed i po, np. 10 -> 12
             values = self.font_card_value.render(
                 f'{card["old_text"]} -> {card["new_text"]}', True, WHITE
             )
@@ -519,7 +527,7 @@ class Game:
     def draw_placeholder(self, title_text):
         title = self.font_title.render(title_text, True, WHITE)
         self.screen.blit(title, title.get_rect(center=(WIDTH // 2, 150)))
-        hint = self.font_small.render("(w budowie) - ESC wraca do menu", True, WHITE)
+        hint = self.font_small.render("(w budowie) Naciśnij ESC, aby wrócić do menu", True, WHITE)
         self.screen.blit(hint, hint.get_rect(center=(WIDTH // 2, 300)))
 
 

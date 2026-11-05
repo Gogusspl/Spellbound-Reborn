@@ -5,15 +5,16 @@ from settings import *
 class Player(pygame.sprite.Sprite):
     def __init__(self):
         super().__init__()
-        # Na razie zwykły kwadrat - później podmienisz na grafikę
-        self.image = pygame.Surface((PLAYER_SIZE, PLAYER_SIZE))
-        self.image.fill(PLAYER_COLOR)
+        # Grafika maga
+        self.image_right = load_sprite("player.png", PLAYER_SPRITE_SIZE)
+        self.image_left = pygame.transform.flip(self.image_right, True, False)
+        self.image = self.image_right
         self.rect = self.image.get_rect()
 
         self.pos = pygame.math.Vector2(WIDTH // 2, HEIGHT // 2)
         self.rect.center = self.pos
 
-        # Statystyki (karty i sklep będą modyfikować właśnie te wartości)
+        # Statystyki
         self.speed = PLAYER_SPEED
         self.max_hp = PLAYER_MAX_HP
         self.hp = self.max_hp
@@ -42,6 +43,12 @@ class Player(pygame.sprite.Sprite):
         if direction.length() > 0:
             direction = direction.normalize()
 
+        # Obrót grafiki w stronę ruchu poziomego
+        if direction.x < 0:
+            self.image = self.image_left
+        elif direction.x > 0:
+            self.image = self.image_right
+
         self.pos += direction * self.speed * dt
 
         # Nie wychodź poza ekran
@@ -55,7 +62,7 @@ class Player(pygame.sprite.Sprite):
         if self.attack_timer > 0:
             self.attack_timer -= dt
 
-    # ---------- Atak ----------
+    # Atak
     def can_attack(self):
         return self.attack_timer <= 0
 
@@ -63,7 +70,7 @@ class Player(pygame.sprite.Sprite):
         self.attack_timer = 1 / self.attack_speed
 
     def find_target(self, enemies):
-        """Zwraca najbliższego wroga w zasięgu (albo None)."""
+        #Zwraca najbliższego wroga w zasięgu (albo None)
         closest = None
         best_distance = self.attack_range
         for enemy in enemies:
@@ -73,7 +80,7 @@ class Player(pygame.sprite.Sprite):
                 closest = enemy
         return closest
 
-    # ---------- Obrażenia ----------
+    # Obrażenia
     def take_damage(self, amount):
         if self.hit_timer <= 0:
             self.hp -= amount
@@ -82,9 +89,9 @@ class Player(pygame.sprite.Sprite):
     def is_dead(self):
         return self.hp <= 0
 
-    # ---------- XP i złoto ----------
+    # XP i złoto
     def add_xp(self, amount):
-        """Dodaje XP. Zwraca liczbę zdobytych poziomów (zwykle 0 albo 1)."""
+        # Dodaje XP
         self.xp += amount
         levels_gained = 0
         while self.xp >= self.xp_to_next:
